@@ -12,13 +12,7 @@ import {
 } from "../components/ui/table";
 import { Checkbox } from "../components/ui/checkbox";
 import { Trash } from "lucide-react";
-
-interface Task {
-  id: number;
-  title: string;
-  completed: boolean;
-  createdAt: Date;
-}
+import { Task } from "../interfaces/task";
 
 type FilterType = "all" | "completed" | "incomplete";
 
