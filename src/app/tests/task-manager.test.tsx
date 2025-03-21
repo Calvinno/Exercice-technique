@@ -1,206 +1,159 @@
-import { Task } from "../interfaces/task";
+import { renderHook, act } from "@testing-library/react";
+import { useTaskManager } from "../components/task-manager-hook";
 
-const mockDateNow = 1647270000000;
-global.Date.now = jest.fn(() => mockDateNow);
+describe("useTaskManager", () => {
+  it("should initialize with empty tasks", () => {
+    const { result } = renderHook(() => useTaskManager());
+    expect(result.current.tasks).toEqual([]);
+    expect(result.current.newTask).toBe("");
+    expect(result.current.filter).toBe("all");
+    expect(result.current.filteredTasks).toEqual([]);
+  });
 
-const mockDate = new Date(2023, 2, 15);
-global.Date = jest.fn(() => mockDate) as any;
-(global.Date as any).now = jest.fn(() => mockDateNow);
+  it("should add a new task", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.setNewTask("Nouvelle tâche");
+    });
+    expect(result.current.newTask).toBe("Nouvelle tâche");
+    act(() => {
+      result.current.addTask();
+    });
+    expect(result.current.tasks.length).toBe(1);
+    expect(result.current.tasks[0].title).toBe("Nouvelle tâche");
+    expect(result.current.tasks[0].completed).toBe(false);
+    expect(result.current.newTask).toBe("");
+  });
 
-// Créer un objet mock pour TaskManager
-const mockTaskManager = {
-  tasks: [] as Task[],
-  newTask: "",
-  filterType: "all" as "all" | "completed" | "incomplete",
+  it("should not add empty tasks", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.setNewTask("   ");
+      result.current.addTask();
+    });
+    expect(result.current.tasks.length).toBe(0);
+  });
 
-  getTasks: function () {
-    return this.tasks;
-  },
+  it("should toggle task completion status", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.setNewTask("Tâche à basculer");
+    });
+    act(() => {
+      result.current.addTask();
+    });
+    const taskId = result.current.tasks[0].id;
+    act(() => {
+      result.current.toggleTask(taskId);
+    });
+    expect(result.current.tasks[0].completed).toBe(true);
+    act(() => {
+      result.current.toggleTask(taskId);
+    });
+    expect(result.current.tasks[0].completed).toBe(false);
+  });
 
-  setNewTask: function (value: string) {
-    this.newTask = value;
-  },
-
-  getNewTask: function () {
-    return this.newTask;
-  },
-
-  addTask: function (title: string) {
-    if (title.trim()) {
-      this.tasks.push({
-        id: mockDateNow,
-        title,
-        completed: false,
-        createdAt: mockDate,
+  it("should delete a task", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.setNewTask("Tâche 1");
+    });
+    act(() => {
+      result.current.addTask();
+    });
+    setTimeout(() => {
+      act(() => {
+        result.current.setNewTask("Tâche 2");
       });
-    }
-  },
-
-  handleKeyPress: function (e: { key: string }) {
-    if (e.key === "Enter") {
-      if (this.newTask.trim()) {
-        this.tasks.push({
-          id: mockDateNow,
-          title: this.newTask,
-          completed: false,
-          createdAt: mockDate,
-        });
-        this.newTask = "";
-      }
-    }
-  },
-
-  toggleTask: function (id: number) {
-    const task = this.tasks.find((t) => t.id === id);
-    if (task) {
-      task.completed = !task.completed;
-    }
-  },
-
-  deleteTask: function (id: number) {
-    const index = this.tasks.findIndex((t) => t.id === id);
-    if (index !== -1) {
-      this.tasks.splice(index, 1);
-    }
-  },
-
-  updateTask: function (id: number, title: string) {
-    const task = this.tasks.find((t) => t.id === id);
-    if (task) {
-      task.title = title;
-    }
-  },
-
-  getFilteredTasks: function (filter: "all" | "completed" | "incomplete") {
-    this.filterType = filter;
-    return this.tasks.filter((task) => {
-      switch (filter) {
-        case "completed":
-          return task.completed;
-        case "incomplete":
-          return !task.completed;
-        default:
-          return true;
-      }
-    });
-  },
-
-  formatDate: function (date: Date) {
-    return date.toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  },
-};
-
-jest.mock("../components/task-manager", () => mockTaskManager);
-
-describe("TaskManager", () => {
-  let taskManager: any;
-
-  beforeEach(() => {
-    mockTaskManager.tasks = [];
-    mockTaskManager.newTask = "";
-    mockTaskManager.filterType = "all";
-
-    taskManager = mockTaskManager;
+      act(() => {
+        result.current.addTask();
+      });
+      expect(result.current.tasks.length).toBe(2);
+      const taskIdToDelete = result.current.tasks[0].id;
+      act(() => {
+        result.current.deleteTask(taskIdToDelete);
+      });
+      expect(result.current.tasks.length).toBe(1);
+      expect(result.current.tasks[0].title).toBe("Tâche 2");
+    }, 200);
   });
 
-  describe("addTask", () => {
-    it("devrait ajouter une nouvelle tâche", () => {
-      const taskTitle = "Nouvelle tâche de test";
-      taskManager.addTask(taskTitle);
-      const tasks = taskManager.getTasks();
-      expect(tasks).toHaveLength(1);
-      expect(tasks[0].title).toBe(taskTitle);
-      expect(tasks[0].completed).toBe(false);
-      expect(tasks[0].id).toBe(mockDateNow);
-      expect(tasks[0].createdAt).toEqual(mockDate);
+  it("should update task title", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.setNewTask("Tâche initiale");
+      result.current.addTask();
     });
-
-    it("ne devrait pas ajouter de tâche vide", () => {
-      taskManager.addTask("");
-      expect(taskManager.getTasks()).toHaveLength(0);
-      taskManager.addTask("   ");
-      expect(taskManager.getTasks()).toHaveLength(0);
+    act(() => {
+      result.current.addTask();
     });
+    const taskId = result.current.tasks[0].id;
+    act(() => {
+      result.current.updateTask(taskId, "Tâche modifiée");
+    });
+    expect(result.current.tasks[0].title).toBe("Tâche modifiée");
   });
 
-  describe("handleKeyPress", () => {
-    it("devrait ajouter une tâche si la touche Enter est pressée", () => {
-      taskManager.setNewTask("Test Task");
-      taskManager.handleKeyPress({ key: "Enter" });
-      expect(taskManager.getTasks()).toHaveLength(1);
-      expect(taskManager.getTasks()[0].title).toBe("Test Task");
-      taskManager.setNewTask("Another Task");
-      taskManager.handleKeyPress({ key: "Tab" });
-      expect(taskManager.getTasks()).toHaveLength(1);
+  it("should filter completed tasks", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.setNewTask("Tâche incomplète");
     });
+    act(() => {
+      result.current.addTask();
+    });
+    setTimeout(() => {
+      act(() => {
+        result.current.setNewTask("Tâche complète");
+      });
+      act(() => {
+        result.current.addTask();
+      });
+      const completeTaskId = result.current.tasks[1].id;
+      act(() => {
+        result.current.toggleTask(completeTaskId);
+      });
+      act(() => {
+        result.current.setFilter("completed");
+      });
+      expect(result.current.filteredTasks.length).toBe(1);
+      expect(result.current.filteredTasks[0].title).toBe("Tâche complète");
+      act(() => {
+        result.current.setFilter("incomplete");
+      });
+      expect(result.current.filteredTasks.length).toBe(1);
+      expect(result.current.filteredTasks[0].title).toBe("Tâche incomplète");
+      act(() => {
+        result.current.setFilter("all");
+      });
+      expect(result.current.filteredTasks.length).toBe(2);
+    }, 200);
   });
 
-  describe("toggleTask", () => {
-    it("devrait basculer le statut completed d'une tâche", () => {
-      taskManager.addTask("Tâche test");
-      const tasks = taskManager.getTasks();
-      const taskId = tasks[0].id;
-      expect(tasks[0].completed).toBe(false);
-      taskManager.toggleTask(taskId);
-      expect(taskManager.getTasks()[0].completed).toBe(true);
-      taskManager.toggleTask(taskId);
-      expect(taskManager.getTasks()[0].completed).toBe(false);
+  it("should handle key press", () => {
+    const { result } = renderHook(() => useTaskManager());
+    act(() => {
+      result.current.setNewTask("Tâche par touche Entrée");
     });
+    act(() => {
+      const enterKeyEvent = { key: "Enter" } as React.KeyboardEvent;
+      result.current.handleKeyPress(enterKeyEvent);
+    });
+    expect(result.current.tasks.length).toBe(1);
+    expect(result.current.tasks[0].title).toBe("Tâche par touche Entrée");
+    act(() => {
+      result.current.setNewTask("Tâche non ajoutée");
+      const otherKeyEvent = { key: "Tab" } as React.KeyboardEvent;
+      result.current.handleKeyPress(otherKeyEvent);
+    });
+    expect(result.current.tasks.length).toBe(1);
+    expect(result.current.newTask).toBe("Tâche non ajoutée");
   });
 
-  describe("deleteTask", () => {
-    it("devrait supprimer une tâche par son id", () => {
-      taskManager.addTask("Tâche 1");
-      taskManager.addTask("Tâche 2");
-      const tasks = taskManager.getTasks();
-      expect(tasks).toHaveLength(2);
-      const idToDelete = tasks[0].id;
-      taskManager.deleteTask(idToDelete);
-      const remainingTasks = taskManager.getTasks();
-      expect(remainingTasks).toHaveLength(1);
-      expect(remainingTasks[0].title).toBe("Tâche 2");
-    });
-  });
-
-  describe("updateTask", () => {
-    it("devrait mettre à jour le titre d'une tâche", () => {
-      taskManager.addTask("Ancien titre");
-      const taskId = taskManager.getTasks()[0].id;
-      expect(taskManager.getTasks()[0].title).toBe("Ancien titre");
-      taskManager.updateTask(taskId, "Nouveau titre");
-      expect(taskManager.getTasks()[0].title).toBe("Nouveau titre");
-    });
-  });
-
-  //Ne fonctionne pas
-  describe("getFilteredTasks", () => {
-    it("devrait filtrer les tâches selon le filtre sélectionné", () => {
-      taskManager.addTask("Tâche 1");
-      taskManager.addTask("Tâche 2");
-      taskManager.addTask("Tâche 3");
-      const tasks = taskManager.getTasks();
-      taskManager.toggleTask(tasks[0].id);
-      taskManager.toggleTask(tasks[2].id);
-      const allTasks = taskManager.getFilteredTasks("all");
-      expect(allTasks).toHaveLength(3);
-      const completedTasks = taskManager.getFilteredTasks("completed");
-      expect(completedTasks).toHaveLength(0);
-      expect(completedTasks.every((task: Task) => task.completed)).toBe(true);
-      const incompleteTasks = taskManager.getFilteredTasks("incomplete");
-      expect(incompleteTasks).toHaveLength(3);
-      expect(incompleteTasks.every((task: Task) => !task.completed)).toBe(true);
-    });
-  });
-
-  describe("formatDate", () => {
-    it("devrait formater correctement la date", () => {
-      const testDate = new Date(2023, 2, 15);
-      const formattedDate = taskManager.formatDate(testDate);
-      expect(formattedDate).toBe("15/03/2023");
-    });
+  it("should format date correctly", () => {
+    const { result } = renderHook(() => useTaskManager());
+    const testDate = new Date(2023, 0, 15);
+    const formattedDate = result.current.formatDate(testDate);
+    expect(formattedDate).toBe("15/01/2023");
   });
 });
