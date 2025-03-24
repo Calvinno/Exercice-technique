@@ -34,7 +34,11 @@ bun dev
 
 Ouvrez http://localhost:3000 dans votre navigateur pour voir le résultat.
 
-Vous pouvez commencer à modifier la page en éditant app/page.tsx. La page se mettra automatiquement à jour lorsque vous modifiez le fichier.
+## Démarrer les tests
+
+```bash
+npm run test
+```
 
 Ce projet utilise next/font pour optimiser et charger automatiquement Geist, une nouvelle famille de polices développée par Vercel.
 
